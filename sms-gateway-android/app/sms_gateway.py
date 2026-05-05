@@ -70,12 +70,12 @@ class SMSGatewayService:
         
         if not pending_messages:
             logger.info("No hay mensajes pendientes.")
-            return {"status": "success", "processed": 0}
+            return {"status": "success", "processed": 0, "results": []}
 
         if isinstance(pending_messages, str):
             # A veces el backend devuelve strings si no hay nada o hay error
             logger.info(f"Respuesta del backend: {pending_messages}")
-            return {"status": "success", "processed": 0, "message": pending_messages}
+            return {"status": "success", "processed": 0, "results": [], "message": pending_messages}
 
         # Determinar la lista de mensajes a procesar
         messages_list = []

@@ -1,4 +1,4 @@
-from starlite import Router, post, Response, Provide
+from starlite import Router, post, get, Response, Provide
 from app.sms_gateway import SMSGatewayService
 from app.services import MessageService, TERMUX_SMS_API
 from app.utils import Termux
@@ -26,6 +26,7 @@ async def receive_webhook(data: dict, sms_gateway_service: SMSGatewayService) ->
     return await sms_gateway_service.handle_webhook(data)
 
 @post("/sync")
+@get("/sync")
 async def sync_with_backend_route(sms_gateway_service: SMSGatewayService) -> dict:
     return await sms_gateway_service.sync_with_backend()
 
