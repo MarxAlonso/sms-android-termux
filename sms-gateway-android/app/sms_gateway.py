@@ -77,8 +77,15 @@ class SMSGatewayService:
             logger.info(f"Respuesta del backend: {pending_messages}")
             return {"status": "success", "processed": 0, "message": pending_messages}
 
+        logger.info(f"Sincronización: Se recibieron {len(pending_messages)} elementos del backend.")
+        
         results = []
-        for msg_data in pending_messages:
+        for i, msg_data in enumerate(pending_messages):
+            # Validar que sea un diccionario antes de procesar
+            if not isinstance(msg_data, dict):
+                logger.warning(f"Elemento {i} ignorado: no es un diccionario. Valor: {msg_data} (tipo: {type(msg_data)})")
+                continue
+                
             # El formato esperado es {"to": "...", "message": "...", "tenant_id": "..."}
             res = await self.send_sms_gateway(msg_data)
             results.append(res)
@@ -92,6 +99,10 @@ class SMSGatewayService:
 
 
     async def send_sms_gateway(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(data, dict):
+            logger.error(f"send_sms_gateway recibió un tipo inválido: {type(data)}. Valor: {data}")
+            return {"status": "failed", "detail": "Datos de entrada deben ser un diccionario"}
+
         to = data.get("to")
         message = data.get("message")
         tenant_id = data.get("tenant_id", "default")
