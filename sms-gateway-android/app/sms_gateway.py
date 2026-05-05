@@ -77,13 +77,24 @@ class SMSGatewayService:
             logger.info(f"Respuesta del backend: {pending_messages}")
             return {"status": "success", "processed": 0, "message": pending_messages}
 
-        logger.info(f"Sincronización: Se recibieron {len(pending_messages)} elementos del backend.")
-        
+        # Determinar la lista de mensajes a procesar
+        messages_list = []
+        if isinstance(pending_messages, dict):
+            # Si es un diccionario, buscamos los mensajes en la clave 'items'
+            messages_list = pending_messages.get("items", [])
+            logger.info(f"El backend devolvió un diccionario. Extrayendo {len(messages_list)} mensajes de 'items'.")
+        elif isinstance(pending_messages, list):
+            messages_list = pending_messages
+            logger.info(f"El backend devolvió una lista directa de {len(messages_list)} mensajes.")
+        else:
+            logger.warning(f"Formato de respuesta inesperado: {type(pending_messages)}")
+            return {"status": "error", "detail": f"Unexpected response type: {type(pending_messages)}"}
+
         results = []
-        for i, msg_data in enumerate(pending_messages):
+        for i, msg_data in enumerate(messages_list):
             # Validar que sea un diccionario antes de procesar
             if not isinstance(msg_data, dict):
-                logger.warning(f"Elemento {i} ignorado: no es un diccionario. Valor: {msg_data} (tipo: {type(msg_data)})")
+                logger.warning(f"Elemento {i} ignorado: no es un diccionario de mensaje. Valor: {msg_data}")
                 continue
                 
             # El formato esperado es {"to": "...", "message": "...", "tenant_id": "..."}
