@@ -153,15 +153,17 @@ class SMSGatewayService:
                 "message_id": message_id
             }
 
-            # 2. Enviar Webhook de éxito al backend de Railway de forma asíncrona
-            await self._send_callback(message_id, "delivered", to)
+            # 2. Enviar actualización al backend usando PATCH
+            delivery_job_id = data.get("delivery_job_id")
+            await self._send_callback(delivery_job_id, "sent", "DELIVERED")
             
             return response_data
 
         except Exception as e:
             error_msg = str(e)
-            # Enviar Webhook de fallo si algo sale mal
-            await self._send_callback(message_id, "failed", to, error_message=error_msg)
+            # Enviar actualización de fallo
+            delivery_job_id = data.get("delivery_job_id")
+            await self._send_callback(delivery_job_id, "failed", "DISPATCH_ERROR", error_message=error_msg)
             
             return {
                 "detail": "Error al enviar SMS",
@@ -171,29 +173,35 @@ class SMSGatewayService:
                 "message_id": message_id
             }
 
-    async def _send_callback(self, message_id: str, status: str, to: str, error_message: Optional[str] = None):
-        """Envía el estado del mensaje al backend de Railway"""
-        callback_url = f"{settings.backend_url}/test/webhooks/sms-gateway"
+    async def _send_callback(self, delivery_job_id: Optional[int], status: str, reason_code: str, error_message: Optional[str] = None):
+        """Actualiza el estado del mensaje en el backend usando PATCH"""
+        if not delivery_job_id:
+            logger.debug("No delivery_job_id available for callback.")
+            return
+
+        callback_url = f"{settings.backend_url}/calendario/delivery-jobs/sms-pendientes/{delivery_job_id}/estado"
         
         payload = {
-            "message_id": message_id,
-            "status": status,
-            "to": to,
-            "error_code": "500" if status == "failed" else None,
-            "error_message": error_message,
-            "occurred_at": datetime.utcnow().isoformat() + "Z",
-            "raw": {
-                "provider": "sms-gateway",
-                "attempt": 1
-            }
+            "estado": status,
+            "reason_code": reason_code,
+            "detail": error_message or "Procesado por SMS Gateway Android",
+            "occurred_at": datetime.utcnow().isoformat() + "Z"
         }
+
+        if not self._access_token:
+            try:
+                await self.login()
+            except:
+                return
+
+        headers = {"Authorization": f"Bearer {self._access_token}"}
 
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(callback_url, json=payload, timeout=5.0)
-                logger.info(f"Callback enviado a {callback_url} para {message_id}")
+                response = await client.patch(callback_url, json=payload, headers=headers, timeout=5.0)
+                logger.info(f"PATCH {callback_url} -> {response.status_code}")
         except Exception as e:
-            logger.error(f"Error al enviar callback a {callback_url}: {e}")
+            logger.error(f"Error en PATCH callback: {e}")
 
     async def handle_webhook(self, data: Dict[str, Any]) -> Dict[str, Any]:
         message_id = data.get("message_id")
