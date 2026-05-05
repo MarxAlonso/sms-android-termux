@@ -42,7 +42,7 @@ class SMSGatewayService:
         if not self._access_token:
             await self.login()
             
-        pending_url = f"{settings.backend_url}/test/sms/pending"
+        pending_url = f"{settings.backend_url}{settings.pending_sms_path}"
         headers = {"Authorization": f"Bearer {self._access_token}"}
         
         try:
@@ -96,9 +96,24 @@ class SMSGatewayService:
             if not isinstance(msg_data, dict):
                 logger.warning(f"Elemento {i} ignorado: no es un diccionario de mensaje. Valor: {msg_data}")
                 continue
-                
-            # El formato esperado es {"to": "...", "message": "...", "tenant_id": "..."}
-            res = await self.send_sms_gateway(msg_data)
+
+            # Mapear el nuevo formato del backend al formato interno:
+            # {"numero": "...", "mensaje": "..."} → {"to": "...", "message": "..."}
+            normalized = {
+                "to": msg_data.get("numero") or msg_data.get("to"),
+                "message": msg_data.get("mensaje") or msg_data.get("message"),
+                "tenant_id": str(msg_data.get("institucion_id", "default")),
+                "channel": msg_data.get("tipo_envio", "sms"),
+                "delivery_job_id": msg_data.get("delivery_job_id"),
+                "historial_evento_id": msg_data.get("historial_evento_id"),
+            }
+
+            if not normalized["to"] or not normalized["message"]:
+                logger.warning(f"Elemento {i} ignorado: faltan campos 'numero' o 'mensaje'. Datos: {msg_data}")
+                continue
+
+            logger.info(f"Enviando SMS a {normalized['to']} (job: {normalized.get('delivery_job_id')})")
+            res = await self.send_sms_gateway(normalized)
             results.append(res)
             
         logger.info(f"Sincronización completada. Procesados: {len(results)}")
