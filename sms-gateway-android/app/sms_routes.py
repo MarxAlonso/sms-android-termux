@@ -26,12 +26,21 @@ async def receive_webhook(data: dict, sms_gateway_service: SMSGatewayService) ->
     return await sms_gateway_service.handle_webhook(data)
 
 @post("/sync")
+async def sync_with_backend_post(sms_gateway_service: SMSGatewayService) -> dict:
+    return await sms_gateway_service.sync_with_backend()
+
 @get("/sync")
-async def sync_with_backend_route(sms_gateway_service: SMSGatewayService) -> dict:
+async def sync_with_backend_get(sms_gateway_service: SMSGatewayService) -> dict:
     return await sms_gateway_service.sync_with_backend()
 
 sms_router = Router(
     path="",
-    route_handlers=[send_sms_legacy, send_sms_test, receive_webhook, sync_with_backend_route],
+    route_handlers=[
+        send_sms_legacy, 
+        send_sms_test, 
+        receive_webhook, 
+        sync_with_backend_post,
+        sync_with_backend_get
+    ],
     dependencies={"sms_gateway_service": Provide(get_sms_gateway_service)}
 )
