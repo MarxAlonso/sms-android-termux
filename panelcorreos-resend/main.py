@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, filedialog
 import resend
 import os
 import threading
+import base64
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde el archivo .env
@@ -62,6 +63,7 @@ class EmailSenderApp:
         self.content_frame.pack(fill=tk.BOTH, expand=True)
 
         self.recipients = []
+        self.attachments = []
 
         self.create_widgets()
 
@@ -122,8 +124,23 @@ class EmailSenderApp:
         ttk.Entry(frame_msg, textvariable=self.subject_var, font=('Segoe UI', 10)).pack(fill=tk.X, pady=(0, 15))
         
         ttk.Label(frame_msg, text="Mensaje (Soporta HTML básico):").pack(anchor=tk.W, pady=(0, 5))
-        self.message_text = scrolledtext.ScrolledText(frame_msg, height=12, font=('Segoe UI', 10), relief="flat", highlightbackground="#cccccc", highlightthickness=1)
+        self.message_text = scrolledtext.ScrolledText(frame_msg, height=10, font=('Segoe UI', 10), relief="flat", highlightbackground="#cccccc", highlightthickness=1)
         self.message_text.pack(fill=tk.BOTH, expand=True)
+
+        # --- Adjuntos ---
+        frame_attachments = ttk.LabelFrame(parent, text=" 📎 Archivos Adjuntos ", padding=15)
+        frame_attachments.pack(fill=tk.X, pady=(0, 15))
+        
+        btn_att_top = ttk.Frame(frame_attachments)
+        btn_att_top.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Button(btn_att_top, text="📎 Añadir Archivo", command=self.add_attachment).pack(side=tk.LEFT)
+        ttk.Label(btn_att_top, text="(PDF, Word, JPG, PNG)", foreground="#888888", font=('Segoe UI', 9)).pack(side=tk.LEFT, padx=10)
+        
+        self.attachments_listbox = tk.Listbox(frame_attachments, height=3, font=('Segoe UI', 10), relief="flat", highlightbackground="#cccccc", highlightthickness=1)
+        self.attachments_listbox.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        ttk.Button(frame_attachments, text="🗑️ Quitar Seleccionado", command=self.remove_attachment).pack(side=tk.LEFT)
 
         # --- Acciones ---
         frame_actions = ttk.Frame(parent)
@@ -156,6 +173,39 @@ class EmailSenderApp:
         self.recipients.clear()
         self.recipients_listbox.delete(0, tk.END)
 
+    def add_attachment(self):
+        filetypes = (
+            ('Todos los soportados', '*.pdf *.docx *.doc *.jpg *.jpeg *.png'),
+            ('Documentos PDF', '*.pdf'),
+            ('Documentos Word', '*.docx *.doc'),
+            ('Imágenes', '*.jpg *.jpeg *.png'),
+            ('Todos los archivos', '*.*')
+        )
+        
+        filename = filedialog.askopenfilename(
+            title='Seleccionar archivo para adjuntar',
+            initialdir='/',
+            filetypes=filetypes
+        )
+        
+        if filename:
+            if filename not in self.attachments:
+                self.attachments.append(filename)
+                self.attachments_listbox.insert(tk.END, os.path.basename(filename))
+            else:
+                messagebox.showwarning("Atención", "El archivo ya ha sido seleccionado.")
+
+    def remove_attachment(self):
+        selected_idx = self.attachments_listbox.curselection()
+        if selected_idx:
+            idx = selected_idx[0]
+            self.attachments.pop(idx)
+            self.attachments_listbox.delete(idx)
+
+    def clear_attachments(self):
+        self.attachments.clear()
+        self.attachments_listbox.delete(0, tk.END)
+
     def start_sending(self):
         if not self.recipients:
             messagebox.showwarning("Faltan Destinatarios", "Añade al menos un correo a la lista.")
@@ -185,16 +235,33 @@ class EmailSenderApp:
             # Reemplazar saltos de línea por etiquetas <br> para mantener el formato en HTML
             html_content = message.replace('\n', '<br>')
             
+            # Preparar adjuntos
+            attachments_data = []
+            for file_path in self.attachments:
+                try:
+                    with open(file_path, "rb") as f:
+                        content = base64.b64encode(f.read()).decode('utf-8')
+                        attachments_data.append({
+                            "content": content,
+                            "filename": os.path.basename(file_path)
+                        })
+                except Exception as e:
+                    print(f"Error al procesar adjunto {file_path}: {e}")
+
             params = {
                 "from": sender,
                 "to": self.recipients,
                 "subject": subject,
-                "html": f"<div style='font-family: sans-serif, Arial;'>{html_content}</div>"
+                "html": f"<div style='font-family: sans-serif, Arial;'>{html_content}</div>",
+                "text": message
             }
+            
+            if attachments_data:
+                params["attachments"] = attachments_data
             
             response = resend.Emails.send(params)
             
-            self.root.after(0, self.on_send_complete, True, len(self.recipients))
+            self.root.after(0, self.on_send_complete, True, response)
             
         except Exception as e:
             error_msg = str(e)
@@ -203,11 +270,13 @@ class EmailSenderApp:
     def on_send_complete(self, success, details):
         self.send_btn.config(state=tk.NORMAL)
         if success:
-            self.status_var.set(f"✅ Enviado exitosamente a {details} destinatario(s).")
-            messagebox.showinfo("Éxito", "Los correos han sido enviados correctamente.")
+            msg_id = details.get('id', 'Desconocido') if isinstance(details, dict) else details
+            self.status_var.set(f"✅ Enviado exitosamente (ID: {msg_id})")
+            messagebox.showinfo("Éxito", f"El correo fue enviado a Resend correctamente.\n\nID de Mensaje: {msg_id}\n\n IMPORTANTE: El correo no aparecera en la bandeja de entrada, solo aparecera en SPAM o Correo no deseado. Mensajes con asunto 'hola' o palabras pequeñas suelen ser filtrados automáticamente por Gmail.")
             self.message_text.delete("1.0", tk.END)
             self.subject_var.set("")
             self.clear_recipients()
+            self.clear_attachments()
         else:
             self.status_var.set("❌ Error al enviar.")
             messagebox.showerror("Error", f"Ocurrió un error al enviar:\n{details}")
