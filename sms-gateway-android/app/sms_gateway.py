@@ -140,11 +140,14 @@ class SMSGatewayService:
         message_id = f"gw-{uuid.uuid4().hex[:8]}"
 
         try:
-            # 1. Enviar el SMS usando Termux
-            await self.message_service.send(to, message)
+            # 1. Enviar el mensaje según el canal
+            if channel == "whatsapp":
+                await self.message_service.send_whatsapp(to, message)
+            else:
+                await self.message_service.send(to, message)
             
             response_data = {
-                "detail": "SMS encolado en sms gateway",
+                "detail": f"{channel.upper()} encolado en sms gateway",
                 "status": "success",
                 "provider": "sms-gateway",
                 "destination": to,

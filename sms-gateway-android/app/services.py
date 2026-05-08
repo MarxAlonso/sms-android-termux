@@ -6,6 +6,7 @@ import starlite
 from app import utils
 
 TERMUX_SMS_API = ["termux-sms-send", "-n"]
+WHATSAPP_API = ["mudslide", "send"]
 
 SMS_API = list[str] | None
 Termux = utils.Termux | None
@@ -60,6 +61,37 @@ class MessageService:
             raise starlite.HTTPException(
                 status_code=500,
                 detail=f"Failed to send SMS message with {proc_err.cmd}",
+            )
+
+    async def send_whatsapp(self, number: str, message: str) -> None:
+        """Send a WhatsApp message using mudslide.
+
+        Args:
+            number (str): The phone number to send the message to.
+            message (str): The message to be sent.
+        """
+        # Mudslide usually expects numbers without the '+' prefix
+        clean_number = number.replace("+", "").strip()
+        command = ["mudslide", "send", clean_number, message]
+
+        try:
+            import asyncio
+            loop = asyncio.get_running_loop()
+            proc = await loop.run_in_executor(
+                None, lambda: subprocess.run(command, capture_output=True)
+            )
+            if proc.returncode != 0:
+                error_detail = proc.stderr.decode()
+                logger.error(f"Mudslide error: {error_detail}")
+                raise RuntimeError(f"WhatsApp send failed: {error_detail}")
+        except FileNotFoundError:
+            raise starlite.HTTPException(
+                status_code=500, detail="Mudslide CLI is not installed"
+            )
+        except Exception as e:
+            raise starlite.HTTPException(
+                status_code=500,
+                detail=f"Failed to send WhatsApp message: {str(e)}",
             )
 
     @classmethod
