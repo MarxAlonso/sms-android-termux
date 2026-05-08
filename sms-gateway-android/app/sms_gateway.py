@@ -97,20 +97,16 @@ class SMSGatewayService:
                 logger.warning(f"Elemento {i} ignorado: no es un diccionario de mensaje. Valor: {msg_data}")
                 continue
 
-            # Mapear el nuevo formato del backend al formato interno
-            # Intentamos obtener el canal de varias formas posibles
-            raw_channel = msg_data.get("tipo_envio") or msg_data.get("channel") or msg_data.get("tipo") or "sms"
-            
+            # Mapear el nuevo formato del backend al formato interno:
+            # {"numero": "...", "mensaje": "..."} → {"to": "...", "message": "..."}
             normalized = {
                 "to": msg_data.get("numero") or msg_data.get("to"),
                 "message": msg_data.get("mensaje") or msg_data.get("message"),
                 "tenant_id": str(msg_data.get("institucion_id", "default")),
-                "channel": str(raw_channel).lower().strip(),
+                "channel": msg_data.get("tipo_envio", "sms"),
                 "delivery_job_id": msg_data.get("delivery_job_id"),
                 "historial_evento_id": msg_data.get("historial_evento_id"),
             }
-
-            logger.info(f"Procesando mensaje: Para={normalized['to']}, Canal={normalized['channel']}, Datos_Originales={msg_data}")
 
             if not normalized["to"] or not normalized["message"]:
                 logger.warning(f"Elemento {i} ignorado: faltan campos 'numero' o 'mensaje'. Datos: {msg_data}")
@@ -136,7 +132,7 @@ class SMSGatewayService:
         to = data.get("to")
         message = data.get("message")
         tenant_id = data.get("tenant_id", "default")
-        channel = str(data.get("channel", "sms")).lower().strip()
+        channel = data.get("channel", "sms")
 
         if not to or not message:
             raise starlite.HTTPException(status_code=400, detail="to y message son obligatorios")
