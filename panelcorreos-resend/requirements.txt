@@ -1,2 +1,4 @@
 resend
 python-dotenv
+pandas
+openpyxl

@@ -4,6 +4,7 @@ import resend
 import os
 import threading
 import base64
+import pandas as pd
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde el archivo .env
@@ -64,6 +65,7 @@ class EmailSenderApp:
 
         self.recipients = []
         self.attachments = []
+        self.batch_size = 50  # Límite de Resend para destinatarios por correo
 
         self.create_widgets()
 
@@ -114,6 +116,12 @@ class EmailSenderApp:
         btn_rec.pack(fill=tk.X)
         ttk.Button(btn_rec, text="🗑️ Eliminar Seleccionado", command=self.remove_recipient).pack(side=tk.LEFT)
         ttk.Button(btn_rec, text="🧹 Limpiar Lista", command=self.clear_recipients).pack(side=tk.LEFT, padx=10)
+        
+        # Nuevos botones de Excel
+        excel_btns = ttk.Frame(frame_recipients)
+        excel_btns.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(excel_btns, text="📥 Importar Excel", command=self.import_excel).pack(side=tk.LEFT)
+        ttk.Button(excel_btns, text="📄 Descargar Plantilla", command=self.download_template).pack(side=tk.LEFT, padx=10)
 
         # --- Mensaje ---
         frame_msg = ttk.LabelFrame(parent, text=" ✉️ Contenido del Mensaje ", padding=15)
@@ -172,6 +180,44 @@ class EmailSenderApp:
     def clear_recipients(self):
         self.recipients.clear()
         self.recipients_listbox.delete(0, tk.END)
+
+    def download_template(self):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            initialfile="plantilla_correos.xlsx",
+            title="Guardar plantilla de Excel"
+        )
+        if filename:
+            try:
+                df = pd.DataFrame({"Email": ["ejemplo1@correo.com", "ejemplo2@correo.com"]})
+                df.to_excel(filename, index=False)
+                messagebox.showinfo("Éxito", "Plantilla creada correctamente. Llena la columna 'Email' con los destinatarios.")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo crear la plantilla: {e}")
+
+    def import_excel(self):
+        filename = filedialog.askopenfilename(
+            title="Seleccionar archivo Excel",
+            filetypes=[("Excel files", "*.xlsx *.xls")]
+        )
+        if filename:
+            try:
+                df = pd.read_excel(filename)
+                if "Email" in df.columns:
+                    emails = df["Email"].dropna().astype(str).tolist()
+                    count = 0
+                    for email in emails:
+                        email = email.strip()
+                        if email and email not in self.recipients:
+                            self.recipients.append(email)
+                            self.recipients_listbox.insert(tk.END, email)
+                            count += 1
+                    messagebox.showinfo("Éxito", f"Se importaron {count} correos nuevos.")
+                else:
+                    messagebox.showerror("Error", "El archivo Excel debe tener una columna llamada 'Email'.")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo leer el archivo Excel: {e}")
 
     def add_attachment(self):
         filetypes = (
@@ -248,23 +294,41 @@ class EmailSenderApp:
                 except Exception as e:
                     print(f"Error al procesar adjunto {file_path}: {e}")
 
-            params = {
-                "from": sender,
-                "to": self.recipients,
-                "subject": subject,
-                "html": f"<div style='font-family: sans-serif, Arial;'>{html_content}</div>",
-                "text": message
-            }
+            # Dividir destinatarios en lotes (batches) para evitar errores de longitud
+            batches = [self.recipients[i:i + self.batch_size] for i in range(0, len(self.recipients), self.batch_size)]
             
-            if attachments_data:
-                params["attachments"] = attachments_data
+            total_sent = 0
+            all_responses = []
             
-            response = resend.Emails.send(params)
+            for batch in batches:
+                params = {
+                    "from": sender,
+                    "to": batch,
+                    "subject": subject,
+                    "html": f"<div style='font-family: sans-serif, Arial;'>{html_content}</div>",
+                    "text": message
+                }
+                
+                if attachments_data:
+                    params["attachments"] = attachments_data
+                
+                response = resend.Emails.send(params)
+                all_responses.append(response)
+                total_sent += len(batch)
+                
+                # Pequeña pausa opcional si hay muchos lotes
+                if len(batches) > 1:
+                    import time
+                    time.sleep(0.5)
             
-            self.root.after(0, self.on_send_complete, True, response)
+            # Devolvemos la última respuesta o un resumen
+            self.root.after(0, self.on_send_complete, True, all_responses[0] if all_responses else "OK")
             
         except Exception as e:
             error_msg = str(e)
+            # Si el error es por longitud, informar específicamente
+            if "length" in error_msg.lower():
+                error_msg += "\n\nTip: Intenta reducir el número de destinatarios o verifica el formato."
             self.root.after(0, self.on_send_complete, False, error_msg)
 
     def on_send_complete(self, success, details):
