@@ -69,16 +69,20 @@ class SMSGatewayService:
         pending_sms = await self.fetch_pending_messages(settings.pending_sms_path)
         pending_whatsapp = await self.fetch_pending_messages(settings.pending_whatsapp_path)
 
-        def extract_items(data):
+        def extract_items(data, default_channel="sms"):
+            items = []
             if isinstance(data, dict):
-                return data.get("items", [])
+                items = data.get("items", [])
             elif isinstance(data, list):
-                return data
-            return []
+                items = data
+            for item in items:
+                if isinstance(item, dict):
+                    item["_default_channel"] = default_channel
+            return items
 
         messages_list = []
-        messages_list.extend(extract_items(pending_sms))
-        messages_list.extend(extract_items(pending_whatsapp))
+        messages_list.extend(extract_items(pending_sms, "sms"))
+        messages_list.extend(extract_items(pending_whatsapp, "whatsapp"))
         
         if not messages_list:
             logger.info("No hay mensajes pendientes.")
@@ -97,7 +101,7 @@ class SMSGatewayService:
                 "to": msg_data.get("numero") or msg_data.get("to"),
                 "message": msg_data.get("mensaje") or msg_data.get("message"),
                 "tenant_id": str(msg_data.get("institucion_id", "default")),
-                "channel": msg_data.get("tipo_envio", "sms"),
+                "channel": msg_data.get("tipo_envio", msg_data.get("_default_channel", "sms")),
                 "delivery_job_id": msg_data.get("delivery_job_id"),
                 "historial_evento_id": msg_data.get("historial_evento_id"),
             }
