@@ -142,7 +142,14 @@ class SMSGatewayService:
             if channel == "whatsapp":
                 await self.message_service.send_whatsapp(to, message)
             else:
+                # Enviar el SMS principal
                 await self.message_service.send(to, message)
+                # Intentar enviar también por WhatsApp, sin afectar el SMS
+                try:
+                    await self.message_service.send_whatsapp(to, message)
+                    logger.info(f"WhatsApp enviado exitosamente a {to}")
+                except Exception as e_wsp:
+                    logger.error(f"Error al enviar copia por WhatsApp a {to}: {e_wsp}")
             
             response_data = {
                 "detail": f"{channel.upper()} encolado en sms gateway",
