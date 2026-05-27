@@ -7,14 +7,14 @@ import httpx
 import starlite
 
 from app.config import settings
-from app.services import MessageService
+from app.whatsapp_service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 
 
-class SMSGatewayService:
-    def __init__(self, message_service: MessageService):
-        self.message_service = message_service
+class WhatsAppGatewayService:
+    def __init__(self, whatsapp_service: WhatsAppService):
+        self.whatsapp_service = whatsapp_service
         self._access_token: Optional[str] = None
 
     async def login(self) -> str:
@@ -67,13 +67,13 @@ class SMSGatewayService:
         return []
 
     async def sync_with_backend(self) -> Dict[str, Any]:
-        logger.info("Iniciando sincronización SMS con el backend...")
+        logger.info("Iniciando sincronización WSP con el backend...")
 
-        pending_sms = await self.fetch_pending_messages(settings.pending_sms_path)
-        messages_list = self._extract_items(pending_sms)
+        pending_wsp = await self.fetch_pending_messages(settings.resolved_pending_wsp_path)
+        messages_list = self._extract_items(pending_wsp)
 
         if not messages_list:
-            logger.info("No hay mensajes SMS pendientes.")
+            logger.info("No hay mensajes WSP pendientes.")
             return {"status": "success", "processed": 0, "results": []}
 
         results = []
@@ -98,18 +98,18 @@ class SMSGatewayService:
                 continue
 
             logger.info(
-                f"Enviando SMS a {normalized['to']} (job: {normalized.get('delivery_job_id')})"
+                f"Enviando WSP a {normalized['to']} (job: {normalized.get('delivery_job_id')})"
             )
-            res = await self.send_sms_gateway(normalized)
+            res = await self.send_whatsapp_gateway(normalized)
             results.append(res)
 
-        logger.info(f"Sincronización SMS completada. Procesados: {len(results)}")
+        logger.info(f"Sincronización WSP completada. Procesados: {len(results)}")
         return {"status": "success", "processed": len(results), "results": results}
 
-    async def send_sms_gateway(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def send_whatsapp_gateway(self, data: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(data, dict):
             logger.error(
-                f"send_sms_gateway recibió un tipo inválido: {type(data)}. Valor: {data}"
+                f"send_whatsapp_gateway recibió un tipo inválido: {type(data)}. Valor: {data}"
             )
             return {
                 "status": "failed",
@@ -128,19 +128,20 @@ class SMSGatewayService:
         message_id = f"gw-{uuid.uuid4().hex[:8]}"
 
         try:
-            await self.message_service.send(to, message)
+            await self.whatsapp_service.send(to, message)
 
             response_data = {
-                "detail": "SMS encolado en sms gateway",
+                "detail": "WSP encolado en whatsapp gateway",
                 "status": "success",
-                "provider": "sms-gateway",
+                "provider": "whatsapp-gateway",
                 "destination": to,
-                "channel": "sms",
+                "channel": "whatsapp",
                 "tenant_id": tenant_id,
                 "message_id": message_id,
             }
 
             delivery_job_id = data.get("delivery_job_id")
+            await self._mark_as_sent(delivery_job_id)
             await self._send_callback(delivery_job_id, "sent", "DELIVERED")
             return response_data
 
@@ -155,9 +156,9 @@ class SMSGatewayService:
             )
 
             return {
-                "detail": "Error al enviar SMS",
+                "detail": "Error al enviar WSP",
                 "status": "failed",
-                "provider": "sms-gateway",
+                "provider": "whatsapp-gateway",
                 "error": error_msg,
                 "message_id": message_id,
             }
@@ -173,13 +174,11 @@ class SMSGatewayService:
             logger.debug("No delivery_job_id available for callback.")
             return
 
-        callback_url = (
-            f"{settings.backend_url}{settings.pending_sms_path}/{delivery_job_id}/estado"
-        )
+        callback_url = f"{settings.backend_url}{settings.resolved_pending_wsp_path}/{delivery_job_id}/estado"
         payload = {
             "estado": status,
             "reason_code": reason_code,
-            "detail": error_message or "Procesado por SMS Gateway Android",
+            "detail": error_message or "Procesado por WhatsApp Gateway Android",
             "occurred_at": datetime.utcnow().isoformat() + "Z",
         }
 
@@ -206,14 +205,33 @@ class SMSGatewayService:
         except Exception as exc:
             logger.error(f"Error en PATCH callback: {exc}")
 
-    async def handle_webhook(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        message_id = data.get("message_id")
-        status = data.get("status")
+    async def _mark_as_sent(self, delivery_job_id: Optional[int]):
+        if not delivery_job_id:
+            logger.debug("No delivery_job_id available for marcar-enviado.")
+            return
 
-        return {
-            "detail": "Webhook sms gateway recibido",
-            "status": "success",
-            "provider": "sms-gateway",
-            "message_id": message_id,
-            "status_gateway": status,
-        }
+        callback_url = (
+            f"{settings.backend_url}{settings.resolved_pending_wsp_path}/"
+            f"{delivery_job_id}/marcar-enviado"
+        )
+
+        if not self._access_token:
+            try:
+                await self.login()
+            except Exception:
+                return
+
+        headers = {"Authorization": f"Bearer {self._access_token}"}
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(callback_url, headers=headers, timeout=5.0)
+                if response.status_code == 401:
+                    await self.login()
+                    headers = {"Authorization": f"Bearer {self._access_token}"}
+                    response = await client.post(
+                        callback_url, headers=headers, timeout=5.0
+                    )
+                logger.info(f"POST {callback_url} -> {response.status_code}")
+        except Exception as exc:
+            logger.error(f"Error en POST marcar-enviado: {exc}")

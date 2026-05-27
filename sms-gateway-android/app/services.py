@@ -36,14 +36,7 @@ class MessageService:
 
     @validate_send_sms
     async def send(self, number: str, message: str) -> None:
-        """Send a text message to a given number.
-
-        Args:
-            number (str): The phone number to send the message to.
-            message (str): The message to be sent.
-        """
-        # The decorator will check if the termux service and sms api are available
-        # The code below is just for the type checker
+        """Send a text message to a given number."""
         assert self.termux is not None
 
         try:
@@ -61,39 +54,6 @@ class MessageService:
             raise starlite.HTTPException(
                 status_code=500,
                 detail=f"Failed to send SMS message with {proc_err.cmd}",
-            )
-
-    async def send_whatsapp(self, number: str, message: str) -> None:
-        """Send a WhatsApp message using termux-open-url.
-
-        Args:
-            number (str): The phone number to send the message to.
-            message (str): The message to be sent.
-        """
-        import urllib.parse
-        import asyncio
-        
-        clean_number = number.replace("+", "").strip()
-        encoded_message = urllib.parse.quote(message)
-        url = f"https://wa.me/{clean_number}?text={encoded_message}"
-        command = ["termux-open-url", url]
-
-        try:
-            loop = asyncio.get_running_loop()
-            proc = await loop.run_in_executor(
-                None, lambda: subprocess.run(command, capture_output=True)
-            )
-            if proc.returncode != 0:
-                error_detail = proc.stderr.decode()
-                raise RuntimeError(f"WhatsApp send failed: {error_detail}")
-        except FileNotFoundError:
-            raise starlite.HTTPException(
-                status_code=500, detail="termux-open-url is not available"
-            )
-        except Exception as e:
-            raise starlite.HTTPException(
-                status_code=500,
-                detail=f"Failed to send WhatsApp message: {str(e)}",
             )
 
     @classmethod
