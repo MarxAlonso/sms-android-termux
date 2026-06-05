@@ -79,6 +79,35 @@ async def sync_legacy_get(
     return {"deprecated": True, "sms": sms_result, "wsp": wsp_result}
 
 
+@get("/whatsapp/queue/status")
+async def whatsapp_queue_status() -> dict:
+    from app.whatsapp_queue import count_queued, get_all_messages
+
+    count = count_queued()
+    messages = get_all_messages()
+    return {
+        "status": "success",
+        "queued": count,
+        "messages": [
+            {
+                "id": m["id"],
+                "to": m["to_number"],
+                "message_preview": m["message"][:80],
+                "delivery_job_id": m["delivery_job_id"],
+            }
+            for m in messages
+        ],
+    }
+
+
+@post("/whatsapp/queue/clear")
+async def whatsapp_queue_clear() -> dict:
+    from app.whatsapp_queue import clear_queue
+
+    clear_queue()
+    return {"status": "success", "detail": "Cola de WhatsApp eliminada."}
+
+
 sms_router = Router(
     path="",
     route_handlers=[
@@ -92,6 +121,8 @@ sms_router = Router(
         sync_wsp_get,
         sync_legacy_post,
         sync_legacy_get,
+        whatsapp_queue_status,
+        whatsapp_queue_clear,
     ],
     dependencies={
         "sms_gateway_service": Provide(get_sms_gateway_service),

@@ -74,9 +74,9 @@ class WhatsAppGatewayService:
 
         if not messages_list:
             logger.info("No hay mensajes WSP pendientes.")
-            return {"status": "success", "processed": 0, "results": []}
+            return {"status": "success", "queued": 0, "total_in_queue": 0}
 
-        results = []
+        normalized_messages = []
         for i, msg_data in enumerate(messages_list):
             if not isinstance(msg_data, dict):
                 logger.warning(
@@ -97,14 +97,30 @@ class WhatsAppGatewayService:
                 )
                 continue
 
-            logger.info(
-                f"Enviando WSP a {normalized['to']} (job: {normalized.get('delivery_job_id')})"
-            )
-            res = await self.send_whatsapp_gateway(normalized)
-            results.append(res)
+            normalized_messages.append(normalized)
 
-        logger.info(f"Sincronización WSP completada. Procesados: {len(results)}")
-        return {"status": "success", "processed": len(results), "results": results}
+        if not normalized_messages:
+            return {"status": "success", "queued": 0, "total_in_queue": 0}
+
+        from app.whatsapp_queue import queue_messages, count_queued
+
+        queued_count = queue_messages(normalized_messages)
+        total = count_queued()
+
+        logger.info(
+            f"{queued_count} mensajes WSP encolados en SQLite. Total en cola: {total}"
+        )
+
+        return {
+            "status": "success",
+            "queued": queued_count,
+            "total_in_queue": total,
+            "detail": (
+                f"{queued_count} mensajes de WhatsApp encolados. "
+                "Ejecuta 'python -m app.process_whatsapp_queue' "
+                "para procesarlos uno por uno."
+            ),
+        }
 
     async def send_whatsapp_gateway(self, data: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(data, dict):
