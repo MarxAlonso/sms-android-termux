@@ -24,6 +24,7 @@ import exporters
 def main():
     solo_reportes = "--solo-reportes" in sys.argv
     rescrapear = "--rescrapear" in sys.argv
+    reanudar = "--reanudar" in sys.argv
 
     print("=" * 50)
     print("  SISTEMA DE EXTRACCIÓN RENACYT")
@@ -36,6 +37,9 @@ def main():
     debe_scrapear = False
     if solo_reportes:
         print("\n⏩ Modo 'solo reportes': saltando scraping...")
+    elif reanudar:
+        print("\n🔍 FASE 1: Reanudando scraping desde donde se quedó (conserva BD)...")
+        debe_scrapear = True
     elif rescrapear:
         print("\n🔍 FASE 1: Rescrapeando desde cero (se sobreescribe la BD)...")
         debe_scrapear = True
@@ -44,6 +48,7 @@ def main():
         if registros_actuales > 0:
             print(f"\n🔍 Ya existen {registros_actuales} registros en la BD.")
             print("   Para rescrapear desde cero:  python main.py --rescrapear")
+            print("   Para reanudar scraping:      python main.py --reanudar")
             print("   Para solo generar reportes:  python main.py --solo-reportes")
         else:
             debe_scrapear = True

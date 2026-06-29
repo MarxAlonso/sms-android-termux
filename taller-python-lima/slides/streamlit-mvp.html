@@ -1,0 +1,277 @@
+<style>
+  :root{
+    --ink:#0B0E14; --panel:#141A24; --panel2:#1B222E; --line:#283140;
+    --text:#D6DCE5; --muted:#838E9F; --dim:#5C6675;
+    --accent:#F2A33C; --accent-soft:rgba(242,163,60,.13); --accent-line:rgba(242,163,60,.35);
+    --open:#54B9C7; --green:#7FC99A;
+    --sans:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--ink); color:var(--text); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; overflow:hidden;}
+  .deck{position:fixed; inset:0;}
+  .slide{position:absolute; inset:0; display:flex; flex-direction:column;
+    justify-content:center; padding:clamp(28px,5.5vw,96px);
+    opacity:0; visibility:hidden; transform:translateY(14px);
+    transition:opacity .45s ease, transform .45s ease; overflow:auto;}
+  .slide.active{opacity:1; visibility:visible; transform:none;}
+  .slide.prev{transform:translateY(-14px);}
+  .inner{width:100%; max-width:1080px; margin:0 auto;}
+
+  .hud{position:fixed; top:0; left:0; right:0; height:48px; display:flex;
+    align-items:center; justify-content:space-between; padding:0 clamp(18px,3vw,40px);
+    font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--dim); z-index:20;}
+  .hud .brand{color:var(--muted);} .hud .brand b{color:var(--accent); font-weight:600;}
+  .progress{position:fixed; top:0; left:0; height:2px; background:var(--accent); width:0;
+    z-index:30; transition:width .45s ease;}
+
+  .kicker{font-family:var(--mono); font-size:clamp(11px,1.1vw,13px); letter-spacing:.22em;
+    text-transform:uppercase; color:var(--accent); margin:0 0 18px; display:flex;
+    align-items:center; gap:10px;}
+  .kicker::before{content:""; width:26px; height:1px; background:var(--accent-line);}
+  h1{font-size:clamp(40px,7.5vw,90px); line-height:1.0; letter-spacing:-.02em; margin:0;
+    font-weight:700; text-wrap:balance;}
+  h2{font-size:clamp(28px,4.6vw,52px); line-height:1.05; letter-spacing:-.018em;
+    margin:0 0 28px; font-weight:650; text-wrap:balance;}
+  .lead{font-size:clamp(16px,1.9vw,22px); color:var(--muted); line-height:1.5;
+    max-width:46ch; margin:18px 0 0;}
+  .accent{color:var(--accent);} .green{color:var(--green);}
+
+  .cover h1 .l2{display:block; color:var(--muted); font-size:clamp(22px,3.4vw,40px);
+    font-weight:500; margin-top:12px; letter-spacing:-.01em;}
+  .cover .meta{margin-top:auto; padding-top:40px; font-family:var(--mono); font-size:13px;
+    color:var(--dim); display:flex; gap:22px; flex-wrap:wrap;}
+  .cover .meta b{color:var(--muted); font-weight:500;}
+
+  ul.clean{list-style:none; padding:0; margin:14px 0 0; display:grid; gap:13px;}
+  ul.clean li{position:relative; padding-left:30px;
+    font-size:clamp(15px,1.8vw,20px); line-height:1.5;}
+  ul.clean li::before{content:"→"; position:absolute; left:0; top:0;
+    color:var(--accent); font-family:var(--mono);}
+  ul.clean li b{font-weight:620;} ul.clean li span{color:var(--muted);}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:14px; margin-top:10px;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px;}
+  .card .tag{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--dim); margin-bottom:10px;}
+  .card h3{margin:0 0 6px; font-size:18px; font-weight:620;}
+  .card p{margin:0; color:var(--muted); font-size:14px; line-height:1.5;}
+  .card code{font-family:var(--mono); font-size:12.5px; color:var(--accent);}
+
+  /* code block */
+  .code{background:#0E141D; border:1px solid var(--line); border-radius:14px;
+    padding:24px 26px; font-family:var(--mono); font-size:clamp(13px,1.55vw,18px);
+    line-height:1.7; overflow-x:auto; margin:6px 0 0; color:#C7D0DC;}
+  .code .k{color:#C58BE0;} .code .s{color:var(--green);} .code .f{color:var(--accent);}
+  .code .c{color:var(--dim);} .code .hl{color:var(--accent); font-weight:600;}
+
+  .mental{display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:14px;
+    align-items:center; margin-top:14px; font-family:var(--mono);}
+  .mental .box{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px; text-align:center; font-size:14px; color:var(--muted);}
+  .mental .arr{color:var(--accent);}
+
+  /* uses / when */
+  .duo{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:6px;}
+  .duo .col{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:24px;}
+  .duo .col h3{margin:0 0 12px; font-size:clamp(18px,2.2vw,24px);}
+  .duo .col.yes h3{color:var(--green);} .duo .col.no h3{color:var(--muted);}
+  .duo .col ul{list-style:none; margin:0; padding:0; display:grid; gap:9px;}
+  .duo .col li{color:var(--muted); font-size:15px; line-height:1.45; padding-left:18px; position:relative;}
+  .duo .col.yes li::before{content:"✓"; position:absolute; left:0; color:var(--green);}
+  .duo .col.no li::before{content:"–"; position:absolute; left:2px; color:var(--dim);}
+
+  .tablewrap{overflow-x:auto; margin-top:6px; border:1px solid var(--line); border-radius:14px;}
+  table{border-collapse:collapse; width:100%; font-size:clamp(12px,1.4vw,15px);}
+  th,td{text-align:left; padding:13px 16px; border-bottom:1px solid var(--line);}
+  thead th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--dim); font-weight:500; background:var(--panel2);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody td:first-child{font-weight:600; font-family:var(--mono); font-size:13px; color:var(--accent);}
+  .yn{font-family:var(--mono); font-size:12px;}
+
+  .note{margin-top:22px; font-family:var(--mono); font-size:12px; color:var(--dim); line-height:1.6;}
+
+  .nav{position:fixed; bottom:18px; right:clamp(18px,3vw,40px); display:flex; gap:8px; z-index:20;}
+  .nav button{width:40px; height:40px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--text); font-size:17px; cursor:pointer;
+    transition:border-color .2s, background .2s;}
+  .nav button:hover{border-color:var(--accent-line); background:var(--panel2);}
+  .nav button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .dots{position:fixed; bottom:30px; left:clamp(18px,3vw,40px); display:flex; gap:7px; z-index:20;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--line); border:none; padding:0;
+    cursor:pointer; transition:background .2s, transform .2s;}
+  .dot.on{background:var(--accent); transform:scale(1.25);}
+  .hint{position:fixed; bottom:30px; left:50%; transform:translateX(-50%); font-family:var(--mono);
+    font-size:11px; color:var(--dim); z-index:20; letter-spacing:.06em; transition:opacity .5s;}
+  @media (max-width:760px){.duo,.mental{grid-template-columns:1fr;} .mental .arr{display:none;}}
+  @media (prefers-reduced-motion:reduce){.slide,.progress{transition:none;}}
+</style>
+
+<div class="progress" id="progress"></div>
+<div class="hud">
+  <span class="brand"><b>Python Lima</b> · Meetup #1</span>
+  <span id="counter">01 / 08</span>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 cover -->
+  <section class="slide cover active"><div class="inner">
+    <p class="kicker">Bonus práctico · calentando motores</p>
+    <h1>Streamlit<span class="l2">de un script de Python a una app web, en minutos</span></h1>
+    <p class="lead">La forma más rápida de poner una idea —o un LLM— frente a un usuario.
+      Sin HTML, sin JavaScript: solo Python.</p>
+    <div class="meta"><span><b>Tema:</b> Prototipos y MVPs con IA</span><span><b>Duración:</b> ~10 min + práctica</span></div>
+  </div></section>
+
+  <!-- 2 qué es -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">El qué</p>
+    <h2>¿Qué es Streamlit?</h2>
+    <p class="lead" style="max-width:50ch">Una librería de Python que convierte tu
+      <span class="accent">script en una aplicación web</span>, sin que escribas una línea de frontend.</p>
+    <ul class="clean">
+      <li><b>Cero frontend</b> <span>— ni HTML, ni CSS, ni JavaScript.</span></li>
+      <li><b>Cada elemento es una línea</b> <span>— <code>st.button()</code>, <code>st.slider()</code>, <code>st.chat_input()</code>.</span></li>
+      <li><b>Corres y listo</b> <span>— <code>streamlit run app.py</code> y se abre en tu navegador.</span></li>
+    </ul>
+  </div></section>
+
+  <!-- 3 modelo mental -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">El único concepto que debes entender</p>
+    <h2>El modelo mental</h2>
+    <p class="lead" style="max-width:54ch">Cada vez que el usuario interactúa (un clic, una
+      tecla), Streamlit <span class="accent">vuelve a ejecutar tu script de arriba a abajo</span>.</p>
+    <div class="mental">
+      <div class="box">Interacción</div><div class="arr">→</div>
+      <div class="box">Se re-ejecuta<br>TODO el script</div><div class="arr">→</div>
+      <div class="box">Se redibuja<br>la pantalla</div>
+    </div>
+    <p class="note">¿Y cómo recuerdas algo entre re-ejecuciones (un contador, un historial de
+      chat)? Con <b class="accent">st.session_state</b>. Es el error #1 de quien empieza — y el "aha" #1.</p>
+  </div></section>
+
+
+
+  <!-- 6 datos -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">De datos a visual</p>
+    <h2>Tablas y gráficos, gratis</h2>
+    <p class="lead" style="max-width:50ch">Streamlit dibuja directo desde un DataFrame de pandas.
+      Sin configurar nada.</p>
+    <pre class="code"><span class="k">import</span> pandas <span class="k">as</span> pd
+<span class="k">import</span> streamlit <span class="k">as</span> st
+
+df = pd.read_csv(<span class="s">"ventas.csv"</span>)
+st.<span class="f">dataframe</span>(df)        <span class="c"># la tabla</span>
+st.<span class="f">bar_chart</span>(df)        <span class="c"># el gráfico</span></pre>
+    <p class="note">→ Mira <b>3_datos_y_charts.py</b> (incluye subir tu propio CSV).</p>
+  </div></section>
+
+  <!-- 7 + LLM -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">El momento bueno</p>
+    <h2>+ un LLM = un MVP de IA</h2>
+    <pre class="code"><span class="k">import</span> streamlit <span class="k">as</span> st
+<span class="k">from</span> langchain_groq <span class="k">import</span> ChatGroq
+
+llm = <span class="f">ChatGroq</span>(model=<span class="s">"llama-3.3-70b-versatile"</span>)
+
+prompt = st.<span class="f">text_area</span>(<span class="s">"Pregunta:"</span>)
+<span class="k">if</span> st.<span class="f">button</span>(<span class="s">"Enviar"</span>):
+    st.<span class="hl">write_stream</span>(t.content <span class="k">for</span> t <span class="k">in</span> llm.<span class="f">stream</span>(prompt))</pre>
+    <p class="note">Eso de arriba <b class="accent">ya es una app de IA completa</b>. → app <b>4_primer_llm.py</b>.</p>
+  </div></section>
+
+
+  <!-- 9 cuándo -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Criterio</p>
+    <h2>¿Cuándo usar Streamlit?</h2>
+    <div class="duo">
+      <div class="col yes"><h3>Sí, ideal para</h3><ul>
+        <li>Prototipos y MVPs para validar una idea.</li>
+        <li>Demos y pruebas de concepto con LLMs.</li>
+        <li>Dashboards y herramientas internas.</li>
+        <li>Mostrarle algo a un cliente, ya.</li>
+      </ul></div>
+      <div class="col no"><h3>Mejor otra cosa si</h3><ul>
+        <li>Es una app de producción de alto tráfico.</li>
+        <li>Necesitas una UI/UX móvil muy pulida.</li>
+        <li>Quieres control fino de cada pixel.</li>
+      </ul></div>
+    </div>
+  </div></section>
+
+  <!-- 10 deploy -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Compártelo con el mundo</p>
+    <h2>Deploy gratis</h2>
+    <ul class="clean">
+      <li><b>Streamlit Community Cloud</b> <span>— conectas tu repo de GitHub y te da un link público.</span></li>
+      <li><b>Gratis</b> <span>— sin servidores ni configuración de infraestructura.</span></li>
+      <li><b>Tu API key va en Secrets</b> <span>— nunca en el código (recuerda: el repo es público).</span></li>
+    </ul>
+    <p class="note">⚠️ Ojo: si despliegas una app con TU key, quienes la usen consumen TU cuota.
+      Para experimentar, mejor que cada uno corra local con su propia key.</p>
+  </div></section>
+
+  <!-- 11 cierre -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Tu turno</p>
+    <h2>En lo que duró esta slide…</h2>
+    <p class="lead" style="max-width:52ch">…ya podrías tener una app corriendo. Esa es la idea:
+      <span class="accent">de la idea al prototipo, en minutos.</span></p>
+    <p class="lead" style="max-width:52ch; margin-top:22px">Agarra una de las 5 apps, cámbiale algo,
+      y hazla tuya. Ese es el primer paso para tu próximo proyecto.</p>
+    <p class="lead green" style="margin-top:26px; font-weight:600">streamlit run tu_idea.py 🎈</p>
+  </div></section>
+
+</div>
+
+<div class="dots" id="dots"></div>
+<div class="hint" id="hint">← → para navegar</div>
+<div class="nav">
+  <button id="prev" aria-label="Anterior">‹</button>
+  <button id="next" aria-label="Siguiente">›</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const dotsBox=document.getElementById('dots');
+  const counter=document.getElementById('counter');
+  const progress=document.getElementById('progress');
+  const hint=document.getElementById('hint');
+  let i=0;
+  slides.forEach((_,k)=>{const b=document.createElement('button');b.className='dot'+(k===0?' on':'');
+    b.setAttribute('aria-label','Ir a slide '+(k+1));b.onclick=()=>go(k);dotsBox.appendChild(b);});
+  const dots=[...dotsBox.children];
+  const pad=n=>String(n).padStart(2,'0');
+  function go(n){
+    n=Math.max(0,Math.min(slides.length-1,n));
+    slides[i].classList.remove('active','prev');
+    if(n<i) slides[i].classList.add('prev');
+    i=n; slides[i].classList.add('active'); slides[i].classList.remove('prev');
+    dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+    counter.textContent=pad(i+1)+' / '+pad(slides.length);
+    progress.style.width=((i)/(slides.length-1)*100)+'%';
+    if(i>0&&hint) hint.style.opacity='0';
+  }
+  document.getElementById('next').onclick=()=>go(i+1);
+  document.getElementById('prev').onclick=()=>go(i-1);
+  addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();go(i+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(i-1);}
+    else if(e.key==='Home'){go(0);} else if(e.key==='End'){go(slides.length-1);}
+  });
+  let sx=0;
+  addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+  addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx;
+    if(Math.abs(dx)>50)go(i+(dx<0?1:-1));},{passive:true});
+  go(0);
+</script>

@@ -1,0 +1,15 @@
+# Versiones EXACTAS verificadas para el taller (Python 3.11).
+# Se fijaron tras instalar y probar que todo el stack importa y corre.
+# Si actualizas algo, vuelve a correr `python probar_setup.py` antes del taller.
+
+streamlit==1.58.0
+langchain==1.3.10
+langchain-core==1.4.8
+langchain-community==0.4.2
+langchain-groq==1.1.3
+langgraph==1.2.6
+SQLAlchemy==2.0.51
+pandas==3.0.3
+Faker==40.23.0
+plotly>=5.18.0
+Pygments>=2.17.0

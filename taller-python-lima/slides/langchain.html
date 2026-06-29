@@ -1,0 +1,225 @@
+<style>
+  :root{
+    --ink:#0B0E14; --panel:#141A24; --panel2:#1B222E; --line:#283140;
+    --text:#D6DCE5; --muted:#838E9F; --dim:#5C6675;
+    --accent:#F2A33C; --accent-soft:rgba(242,163,60,.13); --accent-line:rgba(242,163,60,.35);
+    --open:#54B9C7; --green:#7FC99A;
+    --sans:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--ink); color:var(--text); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; overflow:hidden;}
+  .deck{position:fixed; inset:0;}
+  .slide{position:absolute; inset:0; display:flex; flex-direction:column;
+    justify-content:center; padding:clamp(28px,5.5vw,96px);
+    opacity:0; visibility:hidden; transform:translateY(14px);
+    transition:opacity .45s ease, transform .45s ease; overflow:auto;}
+  .slide.active{opacity:1; visibility:visible; transform:none;}
+  .slide.prev{transform:translateY(-14px);}
+  .inner{width:100%; max-width:1080px; margin:0 auto;}
+
+  .hud{position:fixed; top:0; left:0; right:0; height:48px; display:flex;
+    align-items:center; justify-content:space-between; padding:0 clamp(18px,3vw,40px);
+    font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--dim); z-index:20;}
+  .hud .brand{color:var(--muted);} .hud .brand b{color:var(--accent); font-weight:600;}
+  .progress{position:fixed; top:0; left:0; height:2px; background:var(--accent); width:0;
+    z-index:30; transition:width .45s ease;}
+
+  .kicker{font-family:var(--mono); font-size:clamp(11px,1.1vw,13px); letter-spacing:.22em;
+    text-transform:uppercase; color:var(--accent); margin:0 0 18px; display:flex;
+    align-items:center; gap:10px;}
+  .kicker::before{content:""; width:26px; height:1px; background:var(--accent-line);}
+  h1{font-size:clamp(40px,7.5vw,90px); line-height:1.0; letter-spacing:-.02em; margin:0;
+    font-weight:700; text-wrap:balance;}
+  h2{font-size:clamp(28px,4.6vw,52px); line-height:1.05; letter-spacing:-.018em;
+    margin:0 0 28px; font-weight:650; text-wrap:balance;}
+  .lead{font-size:clamp(16px,1.9vw,22px); color:var(--muted); line-height:1.5;
+    max-width:46ch; margin:18px 0 0;}
+  .accent{color:var(--accent);} .green{color:var(--green);}
+
+  .cover h1 .l2{display:block; color:var(--muted); font-size:clamp(20px,3.2vw,38px);
+    font-weight:500; margin-top:14px; letter-spacing:-.01em; line-height:1.1;}
+  .cover .meta{margin-top:auto; padding-top:40px; font-family:var(--mono); font-size:13px;
+    color:var(--dim); display:flex; gap:22px; flex-wrap:wrap;}
+  .cover .meta b{color:var(--muted); font-weight:500;}
+
+  ul.clean{list-style:none; padding:0; margin:14px 0 0; display:grid; gap:13px;}
+  ul.clean li{position:relative; padding-left:30px; font-size:clamp(15px,1.8vw,20px); line-height:1.5;}
+  ul.clean li::before{content:"→"; position:absolute; left:0; top:0; color:var(--accent);
+    font-family:var(--mono);}
+  ul.clean li b{font-weight:620;} ul.clean li span{color:var(--muted);}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:14px; margin-top:10px;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px;}
+  .card .tag{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:10px;}
+  .card h3{margin:0 0 6px; font-size:18px; font-weight:620;}
+  .card p{margin:0; color:var(--muted); font-size:14px; line-height:1.5;}
+
+  .code{background:#0E141D; border:1px solid var(--line); border-radius:14px;
+    padding:24px 26px; font-family:var(--mono); font-size:clamp(13px,1.55vw,18px);
+    line-height:1.7; overflow-x:auto; margin:6px 0 0; color:#C7D0DC;}
+  .code .k{color:#C58BE0;} .code .s{color:var(--green);} .code .f{color:var(--accent);}
+  .code .c{color:var(--dim);} .code .hl{color:var(--accent); font-weight:600;}
+
+  .note{margin-top:22px; font-family:var(--mono); font-size:12px; color:var(--dim); line-height:1.6;}
+
+  .nav{position:fixed; bottom:18px; right:clamp(18px,3vw,40px); display:flex; gap:8px; z-index:20;}
+  .nav button{width:40px; height:40px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--text); font-size:17px; cursor:pointer;
+    transition:border-color .2s, background .2s;}
+  .nav button:hover{border-color:var(--accent-line); background:var(--panel2);}
+  .nav button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .dots{position:fixed; bottom:30px; left:clamp(18px,3vw,40px); display:flex; gap:7px; z-index:20;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--line); border:none; padding:0;
+    cursor:pointer; transition:background .2s, transform .2s;}
+  .dot.on{background:var(--accent); transform:scale(1.25);}
+  .hint{position:fixed; bottom:30px; left:50%; transform:translateX(-50%); font-family:var(--mono);
+    font-size:11px; color:var(--dim); z-index:20; letter-spacing:.06em; transition:opacity .5s;}
+  @media (prefers-reduced-motion:reduce){.slide,.progress{transition:none;}}
+</style>
+
+<div class="progress" id="progress"></div>
+<div class="hud">
+  <span class="brand"><b>Python Lima</b> · Meetup #1</span>
+  <span id="counter">01 / 07</span>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 cover -->
+  <section class="slide cover active"><div class="inner">
+    <p class="kicker">Parte teórica · la librería que usaremos</p>
+    <h1>LangChain<span class="l2">el puente entre tu código y los modelos</span></h1>
+    <p class="lead">La librería que te deja usar cualquier LLM y construir cosas de verdad
+      con él — sin reinventar la rueda.</p>
+    <div class="meta"><span><b>Tema:</b> Qué es · Beneficios · Cómo exprime los modelos</span><span><b>Duración:</b> ~5 min</span></div>
+  </div></section>
+
+  <!-- 2 problema -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Por qué existe</p>
+    <h2>El problema que resuelve</h2>
+    <p class="lead" style="max-width:52ch">Hablarle a un LLM "a mano" se vuelve complicado
+      apenas quieres algo más que un chat simple:</p>
+    <ul class="clean">
+      <li><b>Cada proveedor, su propia API</b> <span>— código distinto para OpenAI, Groq, Gemini…</span></li>
+      <li><b>Cambiar de modelo = reescribir</b> <span>tu aplicación entera.</span></li>
+      <li><b>Tareas comunes, hechas a mano</b> <span>— memoria de chat, usar herramientas, leer documentos… una y otra vez.</span></li>
+    </ul>
+    <p class="note">LangChain pone orden en todo eso, con piezas estándar y reutilizables.</p>
+  </div></section>
+
+  <!-- 3 qué es -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">El qué</p>
+    <h2>¿Qué es LangChain?</h2>
+    <p class="lead" style="max-width:54ch">Una librería de Python que <span class="accent">estandariza
+      cómo hablas con cualquier LLM</span> y te da <span class="accent">piezas listas</span> para
+      construir aplicaciones de IA.</p>
+    <div class="cards" style="margin-top:26px">
+      <div class="card"><div class="tag">Idea 1</div><h3>Una interfaz común</h3><p>El mismo código para cualquier modelo, de cualquier proveedor.</p></div>
+      <div class="card"><div class="tag">Idea 2</div><h3>Bloques que encajan</h3><p>Prompts, herramientas, memoria, agentes… listos para armar.</p></div>
+    </div>
+  </div></section>
+
+  <!-- 4 beneficio 1 -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Beneficio 1</p>
+    <h2>Un código, cualquier modelo</h2>
+    <pre class="code"><span class="k">from</span> langchain_groq <span class="k">import</span> ChatGroq
+
+llm = <span class="f">ChatGroq</span>(model=<span class="s">"llama-3.3-70b-versatile"</span>)
+
+<span class="c"># ¿Cambiar de proveedor? Es UNA línea:</span>
+<span class="c"># from langchain_openai import ChatOpenAI</span>
+<span class="c"># llm = ChatOpenAI(model="gpt-...")</span>
+
+respuesta = llm.<span class="hl">invoke</span>(<span class="s">"Hola, ¿quién eres?"</span>)</pre>
+    <p class="note">Mismo <code>.invoke()</code>, mismo código alrededor. Pruebas y cambias de modelo sin reescribir tu app.</p>
+  </div></section>
+
+  <!-- 5 beneficio 2 -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Beneficio 2</p>
+    <h2>Piezas listas para armar</h2>
+    <div class="cards">
+      <div class="card"><div class="tag">Prompts</div><h3>Plantillas</h3><p>Instrucciones reutilizables y parametrizables.</p></div>
+      <div class="card"><div class="tag">Tools</div><h3>Herramientas</h3><p>Darle funciones al modelo: APIs, bases de datos…</p></div>
+      <div class="card"><div class="tag">Memory</div><h3>Memoria</h3><p>Que recuerde la conversación.</p></div>
+      <div class="card"><div class="tag">RAG</div><h3>Tus documentos</h3><p>Responder sobre tus propios datos (retrievers).</p></div>
+      <div class="card"><div class="tag">Parsers</div><h3>Salida estructurada</h3><p>Forzar respuestas en JSON u otro formato.</p></div>
+      <div class="card"><div class="tag">Agents</div><h3>Agentes</h3><p>El modelo decide qué pieza usar y cuándo.</p></div>
+    </div>
+    <p class="note">Las conectas como piezas de Lego para construir justo lo que necesitas.</p>
+  </div></section>
+
+  <!-- 6 beneficio 3 / agentes -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">Beneficio 3 · lo que haremos hoy</p>
+    <h2>De "chatear" a agentes que actúan</h2>
+    <ul class="clean">
+      <li><b>Le das herramientas al modelo</b> <span>— consultar una base de datos, llamar una API, buscar en la web.</span></li>
+      <li><b>El modelo decide</b> <span>cuál usar y cuándo — tú no programas el flujo paso a paso.</span></li>
+      <li><b>LangChain + LangGraph arman el bucle</b> <span>por ti: pensar → actuar → observar → repetir.</span></li>
+    </ul>
+    <p class="note">Eso es <b class="accent">exprimir el modelo</b>: ya no solo responde, <b class="accent">ACTÚA</b>. Justo lo que haremos hoy con la base de datos.</p>
+  </div></section>
+
+  <!-- 7 cierre -->
+  <section class="slide"><div class="inner">
+    <p class="kicker">En resumen</p>
+    <h2>LangChain es el pegamento</h2>
+    <p class="lead" style="max-width:54ch">Tú piensas en <span class="accent">qué</span> construir;
+      LangChain se encarga del <span class="accent">cómo</span> hablarle a cada modelo y de las
+      piezas comunes.</p>
+    <p class="note" style="margin-top:24px; font-size:13px">El combo que usaremos:
+      <b>LangChain</b> (las piezas) · <b>LangGraph</b> (orquesta el agente) · <b>LangSmith</b> (para depurar y observar).</p>
+    <p class="lead accent" style="margin-top:24px; font-weight:600">Hoy lo usamos para construir un agente que consulta una base de datos. Manos al código →</p>
+  </div></section>
+
+</div>
+
+<div class="dots" id="dots"></div>
+<div class="hint" id="hint">← → para navegar</div>
+<div class="nav">
+  <button id="prev" aria-label="Anterior">‹</button>
+  <button id="next" aria-label="Siguiente">›</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const dotsBox=document.getElementById('dots');
+  const counter=document.getElementById('counter');
+  const progress=document.getElementById('progress');
+  const hint=document.getElementById('hint');
+  let i=0;
+  slides.forEach((_,k)=>{const b=document.createElement('button');b.className='dot'+(k===0?' on':'');
+    b.setAttribute('aria-label','Ir a slide '+(k+1));b.onclick=()=>go(k);dotsBox.appendChild(b);});
+  const dots=[...dotsBox.children];
+  const pad=n=>String(n).padStart(2,'0');
+  function go(n){
+    n=Math.max(0,Math.min(slides.length-1,n));
+    slides[i].classList.remove('active','prev');
+    if(n<i) slides[i].classList.add('prev');
+    i=n; slides[i].classList.add('active'); slides[i].classList.remove('prev');
+    dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+    counter.textContent=pad(i+1)+' / '+pad(slides.length);
+    progress.style.width=((i)/(slides.length-1)*100)+'%';
+    if(i>0&&hint) hint.style.opacity='0';
+  }
+  document.getElementById('next').onclick=()=>go(i+1);
+  document.getElementById('prev').onclick=()=>go(i-1);
+  addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();go(i+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(i-1);}
+    else if(e.key==='Home'){go(0);} else if(e.key==='End'){go(slides.length-1);}
+  });
+  let sx=0;
+  addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+  addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx;
+    if(Math.abs(dx)>50)go(i+(dx<0?1:-1));},{passive:true});
+  go(0);
+</script>

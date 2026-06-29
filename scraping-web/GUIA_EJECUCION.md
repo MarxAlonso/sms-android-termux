@@ -234,3 +234,4 @@ deactivate
 
 python main.py --solo-reportes
 ```
+python main.py --reanudar 

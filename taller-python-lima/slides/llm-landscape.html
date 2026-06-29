@@ -1,0 +1,366 @@
+<style>
+  :root{
+    --ink:#0B0E14; --panel:#141A24; --panel2:#1B222E; --line:#283140;
+    --text:#D6DCE5; --muted:#838E9F; --dim:#5C6675;
+    --accent:#F2A33C; --accent-soft:rgba(242,163,60,.13); --accent-line:rgba(242,163,60,.35);
+    --open:#54B9C7; --open-soft:rgba(84,185,199,.12); --red:#E5484D;
+    --sans:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--ink); color:var(--text); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  .deck{position:fixed; inset:0;}
+  .slide{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    justify-content:center; padding:clamp(28px,5.5vw,96px);
+    opacity:0; visibility:hidden; transform:translateY(14px);
+    transition:opacity .45s ease, transform .45s ease;
+    overflow:auto;
+  }
+  .slide.active{opacity:1; visibility:visible; transform:none;}
+  .slide.prev{transform:translateY(-14px);}
+  .inner{width:100%; max-width:1080px; margin:0 auto;}
+
+  /* HUD */
+  .hud{position:fixed; top:0; left:0; right:0; height:48px; display:flex;
+    align-items:center; justify-content:space-between;
+    padding:0 clamp(18px,3vw,40px); font-family:var(--mono);
+    font-size:12px; letter-spacing:.08em; color:var(--dim); z-index:20;}
+  .hud .brand{color:var(--muted);} .hud .brand b{color:var(--accent); font-weight:600;}
+  .progress{position:fixed; top:0; left:0; height:2px; background:var(--accent);
+    width:0; z-index:30; transition:width .45s ease;}
+
+  /* typography */
+  .kicker{font-family:var(--mono); font-size:clamp(11px,1.1vw,13px);
+    letter-spacing:.22em; text-transform:uppercase; color:var(--accent);
+    margin:0 0 18px; display:flex; align-items:center; gap:10px;}
+  .kicker::before{content:""; width:26px; height:1px; background:var(--accent-line);}
+  h1{font-size:clamp(38px,7vw,84px); line-height:1.02; letter-spacing:-.02em;
+    margin:0; font-weight:700; text-wrap:balance;}
+  h2{font-size:clamp(28px,4.6vw,52px); line-height:1.05; letter-spacing:-.018em;
+    margin:0 0 28px; font-weight:650; text-wrap:balance;}
+  .lead{font-size:clamp(16px,1.9vw,22px); color:var(--muted); line-height:1.5;
+    max-width:42ch; margin:18px 0 0;}
+  p{line-height:1.55;}
+  .accent{color:var(--accent);} .openc{color:var(--open);}
+
+  /* cover */
+  .cover h1 .l2{display:block; color:var(--muted); font-size:clamp(20px,3.2vw,38px);
+    font-weight:500; margin-top:14px; letter-spacing:-.01em; line-height:1.1;}
+  .cover .meta{margin-top:auto; padding-top:40px; font-family:var(--mono);
+    font-size:13px; color:var(--dim); display:flex; gap:22px; flex-wrap:wrap;}
+  .cover .meta b{color:var(--muted); font-weight:500;}
+
+  /* layers / lists */
+  .layers{display:grid; gap:14px; margin-top:8px;}
+  .layer{display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:start;
+    padding:20px 22px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px;}
+  .layer .n{font-family:var(--mono); font-size:13px; color:var(--accent);
+    border:1px solid var(--accent-line); border-radius:8px; padding:4px 9px;
+    background:var(--accent-soft);}
+  .layer h3{margin:0 0 5px; font-size:clamp(17px,2vw,21px); font-weight:620;}
+  .layer p{margin:0; color:var(--muted); font-size:clamp(13px,1.45vw,16px);}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:14px; margin-top:10px;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:20px;}
+  .card .tag{font-family:var(--mono); font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--dim); margin-bottom:10px;}
+  .card h3{margin:0 0 6px; font-size:18px; font-weight:620;}
+  .card p{margin:0; color:var(--muted); font-size:14px; line-height:1.5;}
+  .card.k-open{border-color:rgba(84,185,199,.3);} .card.k-open .tag{color:var(--open);}
+
+  /* bullet list — arrow hangs at left, texto fluye inline y alineado */
+  ul.clean{list-style:none; padding:0; margin:14px 0 0; display:grid; gap:13px;}
+  ul.clean li{position:relative; padding-left:30px;
+    font-size:clamp(15px,1.8vw,20px); line-height:1.5;}
+  ul.clean li::before{content:"→"; position:absolute; left:0; top:0;
+    color:var(--accent); font-family:var(--mono);}
+  ul.clean li b{font-weight:620;} ul.clean li span{color:var(--muted);}
+
+  /* two-col compare (razonador vs instruct) */
+  .duo{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:6px;}
+  .duo .col{background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:24px;}
+  .duo .col h3{margin:0 0 12px; font-size:clamp(18px,2.2vw,24px);}
+  .duo .col.instruct h3{color:var(--accent);} .duo .col.reason h3{color:var(--open);}
+  .duo .col ul{list-style:none; margin:0; padding:0; display:grid; gap:9px;}
+  .duo .col li{color:var(--muted); font-size:15px; line-height:1.45; padding-left:18px;
+    position:relative;}
+  .duo .col li::before{content:"·"; position:absolute; left:2px; color:var(--dim);
+    font-weight:700;}
+
+  /* table */
+  .tablewrap{overflow-x:auto; margin-top:6px; border:1px solid var(--line);
+    border-radius:14px;}
+  table{border-collapse:collapse; width:100%; font-size:clamp(12px,1.4vw,15px);
+    font-variant-numeric:tabular-nums;}
+  th,td{text-align:left; padding:13px 16px; border-bottom:1px solid var(--line);}
+  thead th{font-family:var(--mono); font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--dim); font-weight:500; background:var(--panel2);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody td:first-child{font-weight:600; color:var(--text);}
+  .pill{font-family:var(--mono); font-size:11px; padding:3px 8px; border-radius:6px;
+    border:1px solid var(--line); color:var(--muted);}
+  .pill.closed{color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft);}
+  .pill.open{color:var(--open); border-color:rgba(84,185,199,.3); background:var(--open-soft);}
+  .pill.prov{color:#E6EAF0; border-color:var(--dim);}
+  tbody tr.mark td{border-top:2px solid var(--red); border-bottom:2px solid var(--red);}
+  tbody tr.mark td:first-child{border-left:2px solid var(--red);}
+  tbody tr.mark td:last-child{border-right:2px solid var(--red);}
+
+  /* contrast slide */
+  .versus{display:grid; grid-template-columns:1fr auto 1fr; gap:24px; align-items:center;
+    margin-top:10px;}
+  .versus .side{background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:28px; text-align:center;}
+  .versus .side.lose{border-color:rgba(214,90,74,.4);}
+  .versus .side.win{border-color:var(--accent-line); background:linear-gradient(180deg,var(--accent-soft),transparent);}
+  .versus .side .name{font-family:var(--mono); font-size:13px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted);}
+  .versus .side .num{font-size:clamp(34px,6vw,64px); font-weight:700; letter-spacing:-.02em;
+    margin:10px 0 4px; font-variant-numeric:tabular-nums;}
+  .versus .side.lose .num{color:#D65A4A;} .versus .side.win .num{color:var(--accent);}
+  .versus .side small{color:var(--dim); font-family:var(--mono); font-size:12px;}
+  .versus .vs{font-family:var(--mono); color:var(--dim); font-size:14px;}
+
+  /* nav */
+  .nav{position:fixed; bottom:18px; right:clamp(18px,3vw,40px); display:flex;
+    gap:8px; z-index:20;}
+  .nav button{width:40px; height:40px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--text); font-size:17px; cursor:pointer;
+    transition:border-color .2s, background .2s;}
+  .nav button:hover{border-color:var(--accent-line); background:var(--panel2);}
+  .nav button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .dots{position:fixed; bottom:30px; left:clamp(18px,3vw,40px); display:flex; gap:7px; z-index:20;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--line); border:none;
+    padding:0; cursor:pointer; transition:background .2s, transform .2s;}
+  .dot.on{background:var(--accent); transform:scale(1.25);}
+  .hint{position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    font-family:var(--mono); font-size:11px; color:var(--dim); z-index:20;
+    letter-spacing:.06em; transition:opacity .5s;}
+
+  .note{margin-top:22px; font-family:var(--mono); font-size:12px; color:var(--dim);
+    line-height:1.6;}
+  @media (max-width:760px){
+    .duo,.versus{grid-template-columns:1fr;} .versus .vs{display:none;}
+    .layer{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .slide{transition:none;} .progress{transition:none;}
+  }
+</style>
+
+<div class="progress" id="progress"></div>
+<div class="hud">
+  <span class="brand"><b>Python Lima</b> · Meetup #1</span>
+  <span id="counter">01 / 08</span>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · COVER -->
+  <section class="slide cover active">
+    <div class="inner">
+      <p class="kicker">Parte teórica · antes del código</p>
+      <h1>El mapa de los LLMs<span class="l2">qué hay en el mercado y en qué se diferencian</span></h1>
+      <p class="lead">Los tipos de modelos que existen, cómo se organizan, y las diferencias
+        que de verdad importan a la hora de construir.</p>
+      <div class="meta">
+        <span><b>Tema:</b> Modelos · Proveedores · Velocidad · Costo</span>
+        <span><b>Duración:</b> ~10 min</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · 3 capas -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">Cómo está organizado el mercado</p>
+      <h2>El mercado tiene 3 capas</h2>
+      <div class="layers">
+        <div class="layer"><span class="n">01</span><div>
+          <h3>Modelos cerrados (frontier)</h3>
+          <p>Los más capaces. Se usan solo por <b>API de pago</b>. No descargas los pesos. OpenAI, Anthropic, Google, xAI.</p></div></div>
+        <div class="layer"><span class="n">02</span><div>
+          <h3>Modelos open-weight</h3>
+          <p>Los <b>pesos son públicos</b>: los puedes descargar, auto-hospedar o usar vía un proveedor. Llama, Qwen, DeepSeek, Mistral, GLM, Gemma.</p></div></div>
+        <div class="layer"><span class="n">03</span><div>
+          <h3>Inference providers</h3>
+          <p>Quién <b>corre</b> esos modelos y <b>qué tan rápido</b>. Groq, Cerebras, Together, Fireworks, SambaNova.</p></div></div>
+      </div>
+      <p class="note">Clave: <b>el modelo</b> y <b>quién lo sirve</b> son cosas distintas. Un mismo Llama puede correr lento o rapidísimo según el proveedor.</p>
+    </div>
+  </section>
+
+  <!-- 3 · Cerrados -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">Capa 01 · Frontier</p>
+      <h2>Modelos cerrados</h2>
+      <div class="cards">
+        <div class="card"><div class="tag">OpenAI</div><h3>GPT</h3><p>Amplitud agéntica y ecosistema enorme.</p></div>
+        <div class="card"><div class="tag">Anthropic</div><h3>Claude</h3><p>Razonamiento y código de primer nivel.</p></div>
+        <div class="card"><div class="tag">Google</div><h3>Gemini</h3><p>Multimodal y contexto muy largo.</p></div>
+        <div class="card"><div class="tag">xAI</div><h3>Grok</h3><p>Integrado al ecosistema X, en rápida evolución.</p></div>
+      </div>
+      <ul class="clean" style="margin-top:24px">
+        <li><b>A favor</b> <span>— la máxima calidad, soporte y fiabilidad.</span></li>
+        <li><b>En contra</b> <span>— pagas por token, dependes de su nube, no los puedes auto-hospedar.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4 · Open-weight -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">Capa 02 · Open-weight</p>
+      <h2>Modelos abiertos</h2>
+      <div class="cards">
+        <div class="card k-open"><div class="tag">Meta</div><h3>Llama</h3><p>El estándar de facto del mundo abierto.</p></div>
+        <div class="card k-open"><div class="tag">Alibaba</div><h3>Qwen</h3><p>Muy fuerte en código y multilingüe.</p></div>
+        <div class="card k-open"><div class="tag">DeepSeek</div><h3>DeepSeek</h3><p>Calidad frontier a costo mínimo.</p></div>
+        <div class="card k-open"><div class="tag">Google</div><h3>Gemma</h3><p>Pequeños, ideales para correr en tu laptop.</p></div>
+      </div>
+      <ul class="clean" style="margin-top:24px">
+        <li><b>A favor</b> <span>— self-host, privacidad, control de costos; la calidad ya está muy cerca del frontier.</span></li>
+        <li><b>En contra</b> <span>— tú te encargas de la infraestructura… <span class="openc">salvo que uses un inference provider.</span></span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5 · Inference providers -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">Capa 03 · ¿Dónde corren?</p>
+      <h2>Inference providers</h2>
+      <p class="lead" style="max-width:50ch">Toman un modelo abierto (un Llama, un Qwen)
+        y lo sirven por API <span class="accent">muy rápido y barato</span>. Tú solo pides
+        una API key — sin servidores, sin GPUs.</p>
+      <div class="cards" style="margin-top:26px">
+        <div class="card"><div class="tag">Provider</div><h3>Groq</h3><p>Hardware propio (LPU) — de los más rápidos.</p></div>
+        <div class="card"><div class="tag">Provider</div><h3>Cerebras</h3><p>Otro chip dedicado, también ultra-rápido.</p></div>
+        <div class="card"><div class="tag">Provider</div><h3>Together</h3><p>Catálogo enorme de modelos abiertos.</p></div>
+        <div class="card"><div class="tag">Provider</div><h3>Fireworks</h3><p>Rápido y orientado a producción.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · Razonador vs instruct -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">Un concepto que confunde</p>
+      <h2>Razonador vs. instruct</h2>
+      <div class="duo">
+        <div class="col instruct"><h3>Instruct (directo)</h3>
+          <ul>
+            <li>Responde de inmediato, sin "pensar" en voz alta.</li>
+            <li>Rápido y barato.</li>
+            <li>Ideal para tareas claras: clasificar, extraer, redactar, llamar herramientas.</li>
+            <li><b>Es el que usamos hoy.</b></li>
+          </ul>
+        </div>
+        <div class="col reason"><h3>Razonador</h3>
+          <ul>
+            <li>"Piensa" en pasos internos antes de responder.</li>
+            <li>Más lento y caro.</li>
+            <li>Brilla en problemas difíciles: matemática, lógica, planificación.</li>
+            <li>Ej.: las variantes "thinking / reasoning".</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note">En la práctica, el "razonamiento" de <b>nuestro agente</b> no viene del modelo,
+        sino del <b>bucle ReAct</b>: pensar → usar herramienta → observar → repetir.</p>
+    </div>
+  </section>
+
+  <!-- 7 · Tabla -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">Resumen de un vistazo</p>
+      <h2>Tabla comparativa</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Modelo / Proveedor</th><th>Tipo</th><th>Fuerte en</th><th>Free tier</th></tr></thead>
+          <tbody>
+            <tr><td>GPT (OpenAI)</td><td><span class="pill closed">cerrado</span></td><td>Agentes, ecosistema</td><td>No / crédito</td></tr>
+            <tr><td>Claude (Anthropic)</td><td><span class="pill closed">cerrado</span></td><td>Razonamiento, código</td><td>No / crédito</td></tr>
+            <tr class="mark"><td>Gemini (Google)</td><td><span class="pill closed">cerrado</span></td><td>Multimodal, contexto</td><td>Sí, muy limitado</td></tr>
+            <tr><td>Llama (Meta)</td><td><span class="pill open">abierto</span></td><td>Estándar, tool-calling</td><td>Vía provider</td></tr>
+            <tr><td>DeepSeek</td><td><span class="pill open">abierto</span></td><td>Costo / rendimiento</td><td>Vía provider</td></tr>
+            <tr class="mark"><td>Groq</td><td><span class="pill prov">provider</span></td><td>Velocidad extrema</td><td>Sí, generoso</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Recuerda: un <b>proveedor</b> no es un modelo — es quién <b>corre</b> modelos abiertos (como Llama).</p>
+    </div>
+  </section>
+
+  <!-- 8 · Contraste vivido -->
+  <section class="slide">
+    <div class="inner">
+      <p class="kicker">El detalle que decide en la práctica</p>
+      <h2>Free tier: cuánto puedes probar gratis</h2>
+      <p class="lead" style="max-width:54ch">Un agente gasta ~5 llamadas por pregunta
+        (listar tablas → ver schema → verificar → ejecutar → responder). Con eso, el
+        límite diario lo es todo:</p>
+      <div class="versus">
+        <div class="side lose"><div class="name">Gemini · free</div><div class="num">~4</div><small>preguntas/día · límite 20 req/día</small></div>
+        <div class="vs">vs</div>
+        <div class="side win"><div class="name">Groq · free</div><div class="num">~200</div><small>preguntas/día · límite ~1,000 req/día</small></div>
+      </div>
+      <p class="note">Por eso, para este taller usamos <b class="accent">Groq</b>: free tier generoso,
+        sin tarjeta y sin crear proyecto. Con Gemini gratis, el agente se agota en minutos.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="dots" id="dots"></div>
+<div class="hint" id="hint">← → para navegar</div>
+<div class="nav">
+  <button id="prev" aria-label="Anterior">‹</button>
+  <button id="next" aria-label="Siguiente">›</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const dotsBox=document.getElementById('dots');
+  const counter=document.getElementById('counter');
+  const progress=document.getElementById('progress');
+  const hint=document.getElementById('hint');
+  let i=0;
+  slides.forEach((_,k)=>{const b=document.createElement('button');b.className='dot'+(k===0?' on':'');
+    b.setAttribute('aria-label','Ir a slide '+(k+1));b.onclick=()=>go(k);dotsBox.appendChild(b);});
+  const dots=[...dotsBox.children];
+  const pad=n=>String(n).padStart(2,'0');
+  function go(n){
+    n=Math.max(0,Math.min(slides.length-1,n));
+    slides[i].classList.remove('active','prev');
+    if(n<i) slides[i].classList.add('prev');
+    i=n;
+    slides[i].classList.add('active'); slides[i].classList.remove('prev');
+    dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+    counter.textContent=pad(i+1)+' / '+pad(slides.length);
+    progress.style.width=((i)/(slides.length-1)*100)+'%';
+    if(i>0&&hint){hint.style.opacity='0';}
+  }
+  document.getElementById('next').onclick=()=>go(i+1);
+  document.getElementById('prev').onclick=()=>go(i-1);
+  addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();go(i+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(i-1);}
+    else if(e.key==='Home'){go(0);} else if(e.key==='End'){go(slides.length-1);}
+  });
+  let sx=0;
+  addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+  addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx;
+    if(Math.abs(dx)>50)go(i+(dx<0?1:-1));},{passive:true});
+  go(0);
+</script>
